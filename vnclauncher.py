@@ -20,49 +20,53 @@ import os
 import logging
 from gettext import gettext as _
 
-import gtk
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import GLib
+from gi.repository import Vte
+from gi.repository import Pango
 import dbus
 
-from sugar.activity import activity
-from sugar import env
-from sugar.graphics.toolbutton import ToolButton
-from sugar.graphics.palette import Palette
-from sugar.graphics.roundbox import CanvasRoundBox
+from sugar3.activity import activity
+from sugar3 import env
+from sugar3.graphics.toolbutton import ToolButton
+from sugar3.graphics.palette import Palette
 import ConfigParser
 import os
 import os.path
-import vte
-import pango
 import commands
 import sys
 import platform
 import logging
+from jarabe.model import network
+import struct
+import socket
 
 class VncLauncherActivity(activity.Activity):
 
-    def _ipaddr_(self,button):
-        ifconfig="/sbin/ifconfig"
-        ifaces=['eth0','msh0']
-        for iface in ifaces:
-            cmd="%s %s" % (ifconfig, iface)
-            output=commands.getoutput(cmd)
-            ipaddr="Error!!"
-            error="Error!! check wireless connection"
-            inet = output.find('inet')
-            if inet >= 0:
-                print iface
-                start=inet + len('inet')
-                end=output.find(" ",start + 1)
-                if iface == 'eth0':
-                    ipaddr='Ethernet IP= '+ output[start:end]
-                else:
-                    ipaddr='Mesh IP='+ output[start:end]
-                break
-            else:
-                ipaddr=error
-
+    def _ipaddr_(self, button):
+        self.ipbutton = button
         button.set_label('Please Click to find current IP address \n\n' +
-                         ipaddr)
+                         'Error!! check connection')
+        bus = dbus.SystemBus()
+        obj = bus.get_object(network.NM_SERVICE, network.NM_PATH)
+        netmgr = dbus.Interface(obj, network.NM_IFACE)
+        netmgr.GetDevices(reply_handler=self.__get_devices_reply_cb,
+            error_handler=self.__get_devices_error_cb)
+
+    def __get_devices_reply_cb(self, devices):
+        bus = dbus.SystemBus()
+        for device_op in devices:
+            device = bus.get_object(network.NM_SERVICE, device_op)
+            device_props = dbus.Interface(device, dbus.PROPERTIES_IFACE)
+            ip_address = device_props.Get(network.NM_DEVICE_IFACE, 'Ip4Address')
+            ipaddr = socket.inet_ntoa(struct.pack('I', ip_address))
+            if ipaddr != "0.0.0.0" and ipaddr != "127.0.0.1":
+                self.ipbutton.set_label(
+                    'Please Click to find current IP address \n\nIP=' + ipaddr)
+        
+    def __get_devices_error_cb(self, err):
+        pass
 
     def __init__(self, handle):
         activity.Activity.__init__(self, handle)
@@ -73,32 +77,38 @@ class VncLauncherActivity(activity.Activity):
         self.set_title(_('X11 VNC Server Activity'))
         self.connect('key-press-event', self.__key_press_cb)
         args="Please Click to find current IP address"
-        box = gtk.HBox(False, 10)
-        table=gtk.Table(4,1,True)
-        button=gtk.Button(args)
+        box = Gtk.HBox(False, 10)
+        table=Gtk.Table(4,1,True)
+        button=Gtk.Button(args)
         button.connect("clicked",self._ipaddr_)
-        table.attach(button,0,1,0,1,gtk.FILL|gtk.EXPAND,gtk.EXPAND|gtk.FILL,25,25)
+        table.attach(button,0,1,0,1,
+            Gtk.AttachOptions.FILL|Gtk.AttachOptions.EXPAND,
+            Gtk.AttachOptions.EXPAND|Gtk.AttachOptions.FILL,25,25)
         button.show()
-        button=gtk.Button("Start X11 VNC Server")
+        button=Gtk.Button("Start X11 VNC Server")
         button.connect("clicked",self.connectVNC)
-        table.attach(button,0,1,1,2,gtk.FILL|gtk.EXPAND,gtk.FILL|gtk.EXPAND,25,25)
+        table.attach(button,0,1,1,2,
+            Gtk.AttachOptions.FILL|Gtk.AttachOptions.EXPAND,
+            Gtk.AttachOptions.FILL|Gtk.AttachOptions.EXPAND,25,25)
         button.show()
         
-        button=gtk.Button("Stop X11 VNC Server")
+        button=Gtk.Button("Stop X11 VNC Server")
         button.connect("clicked",self.stopVNC)
-        table.attach(button,0,1,2,3,gtk.FILL,gtk.FILL,25,25)
+        table.attach(button,0,1,2,3,Gtk.AttachOptions.FILL,
+            Gtk.AttachOptions.FILL,25,25)
         button.show()
 
-        button=gtk.Button("Exit VncLauncherActivity")
-        button.connect("clicked",lambda w:gtk.main_quit())
-        table.attach(button,0,1,3,4,gtk.FILL,gtk.FILL,25,25)
+        button=Gtk.Button("Exit VncLauncherActivity")
+        button.connect("clicked",lambda w:Gtk.main_quit())
+        table.attach(button,0,1,3,4,Gtk.AttachOptions.FILL,
+            Gtk.AttachOptions.FILL,25,25)
         button.show()
         table.show()
          
         self._vte = VTE()
         self._vte.show()
 
-        box.pack_start(self._vte)
+        box.pack_start(self._vte, True, True, 0)
         box.pack_start(table, False, False, 0)
         
         self.set_canvas(box) 
@@ -106,8 +116,8 @@ class VncLauncherActivity(activity.Activity):
 
     def stopVNC(self,button):
 	
-        cmd = "kill" + commands.getoutput('pidof x11vnc')
-        self._vte.fork_command(cmd)
+        cmd = "\x03" # Ctrl+C
+        self._vte.feed_child(cmd, -1)
           
     def connectVNC(self,button):
         self._vte.grab_focus()
@@ -118,27 +128,33 @@ class VncLauncherActivity(activity.Activity):
         else:
             # check platform
             if platform.machine().startswith('arm'):
-                path = os.path.join(activity.get_bundle_path(),
-                                    'bin/arm')
+                path = os.path.join(activity.get_bundle_path(), 'bin/arm')
             else:
-                path = os.path.join(activity.get_bundle_path(),
-                                    'bin/i586')
-            env = {'LD_LIBRARY_PATH':'%s/lib' % path}
-            cmd = os.path.join(path, 'x11vnc')
+                if platform.architecture()[0] == '64bit':
+                    path = os.path.join(activity.get_bundle_path(),
+                        'bin/x86-64')
+                else:
+                    path = os.path.join(activity.get_bundle_path(), 'bin/x86')
+            self._vte.feed_child(
+                "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib\n" % path, -1)
+            cmd = os.path.join(path, 'x11vnc')+"\n"
             logging.error('Using %s', cmd)
-        self._vte.fork_command(cmd, envv=env)
+        self._vte.feed_child(cmd, -1)
 
     def __key_press_cb(self, window, event):
         return False
 
-class VTE(vte.Terminal):
+class VTE(Vte.Terminal):
     def __init__(self):
-        vte.Terminal.__init__(self)
+        Vte.Terminal.__init__(self)
         self._configure_vte()
-        self.connect("child-exited", lambda term: term.fork_command())
+        self.connect("child-exited", lambda term: term.fork_command_full(
+            Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
+            GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
 
         os.chdir(os.environ["HOME"])
-        self.fork_command()
+        self.fork_command_full(Vte.PtyFlags.DEFAULT, os.environ["HOME"],
+            ["/bin/bash"], [], GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None)
 
     def _configure_vte(self):
         conf = ConfigParser.ConfigParser()
@@ -156,7 +172,7 @@ class VTE(vte.Terminal):
         else:
             font = 'Monospace 8'
             conf.set('terminal', 'font', font)
-        self.set_font(pango.FontDescription(font))
+        self.set_font(Pango.FontDescription(font))
 
         if conf.has_option('terminal', 'fg_color'):
             fg_color = conf.get('terminal', 'fg_color')
@@ -168,8 +184,8 @@ class VTE(vte.Terminal):
         else:
             bg_color = '#FFFFFF'
             conf.set('terminal', 'bg_color', bg_color)
-        self.set_colors(gtk.gdk.color_parse (fg_color),
-                            gtk.gdk.color_parse (bg_color),
+        self.set_colors(Gdk.color_parse (fg_color),
+                            Gdk.color_parse (bg_color),
                             [])
                             
         if conf.has_option('terminal', 'cursor_blink'):
@@ -178,7 +194,7 @@ class VTE(vte.Terminal):
             blink = False
             conf.set('terminal', 'cursor_blink', blink)
         
-        self.set_cursor_blinks(blink)
+        self.set_cursor_blink_mode(blink)
 
         if conf.has_option('terminal', 'bell'):
             bell = conf.getboolean('terminal', 'bell')
