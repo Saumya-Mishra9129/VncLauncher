@@ -29,15 +29,9 @@ import dbus
 
 from sugar3.activity import activity
 from sugar3 import env
-from sugar3.graphics.toolbutton import ToolButton
-from sugar3.graphics.palette import Palette
 import ConfigParser
-import os
 import os.path
-import commands
-import sys
 import platform
-import logging
 from jarabe.model import network
 import struct
 import socket
