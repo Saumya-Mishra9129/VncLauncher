@@ -145,19 +145,34 @@ class VTE(Vte.Terminal):
     def __init__(self):
         Vte.Terminal.__init__(self)
         self._configure_vte()
-        self.connect("child-exited", lambda term: term.spawn_sync(
-            Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
-            GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
+        if hasattr(Vte.Terminal, "spawn_sync"):
+            self.connect("child-exited", lambda term: term.spawn_sync(
+                Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
+                GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
+        else:
+            self.connect("child-exited", lambda term: term.fork_full_command(
+                Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
+                GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
 
         os.chdir(os.environ["HOME"])
-        self.spawn_sync(
-            Vte.PtyFlags.DEFAULT,
-            os.environ["HOME"],
-            ["/bin/bash"],
-            [],
-            GLib.SpawnFlags.DO_NOT_REAP_CHILD,
-            None,
-            None)
+        if hasattr(Vte.Terminal, "spawn_sync"):
+            self.spawn_sync(
+                Vte.PtyFlags.DEFAULT,
+                os.environ["HOME"],
+                ["/bin/bash"],
+                [],
+                GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+                None,
+                None)
+        else:
+            self.fork_command_full(
+                Vte.PtyFlags.DEFAULT,
+                os.environ["HOME"],
+                ["/bin/bash"],
+                [],
+                GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+                None,
+                None)
 
     def _configure_vte(self):
         conf = ConfigParser.ConfigParser()
