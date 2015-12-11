@@ -42,6 +42,7 @@ from jarabe.model import network
 import struct
 import socket
 
+
 class VncLauncherActivity(activity.Activity):
 
     def _ipaddr_(self, button):
@@ -52,74 +53,74 @@ class VncLauncherActivity(activity.Activity):
         obj = bus.get_object(network.NM_SERVICE, network.NM_PATH)
         netmgr = dbus.Interface(obj, network.NM_IFACE)
         netmgr.GetDevices(reply_handler=self.__get_devices_reply_cb,
-            error_handler=self.__get_devices_error_cb)
+                          error_handler=self.__get_devices_error_cb)
 
     def __get_devices_reply_cb(self, devices):
         bus = dbus.SystemBus()
         for device_op in devices:
             device = bus.get_object(network.NM_SERVICE, device_op)
             device_props = dbus.Interface(device, dbus.PROPERTIES_IFACE)
-            ip_address = device_props.Get(network.NM_DEVICE_IFACE, 'Ip4Address')
+            ip_address = device_props.Get(
+                network.NM_DEVICE_IFACE, 'Ip4Address')
             ipaddr = socket.inet_ntoa(struct.pack('I', ip_address))
             if ipaddr != "0.0.0.0" and ipaddr != "127.0.0.1":
                 self.ipbutton.set_label(
                     'Please Click to find current IP address \n\nIP=' + ipaddr)
-        
+
     def __get_devices_error_cb(self, err):
         pass
 
     def __init__(self, handle):
         activity.Activity.__init__(self, handle)
 
-        
         logging.debug('Starting the X11 VNC activity')
-        
+
         self.set_title(_('X11 VNC Server Activity'))
         self.connect('key-press-event', self.__key_press_cb)
-        args="Please Click to find current IP address"
+        args = "Please Click to find current IP address"
         box = Gtk.HBox(False, 10)
-        table=Gtk.Table(4,1,True)
-        button=Gtk.Button(args)
-        button.connect("clicked",self._ipaddr_)
-        table.attach(button,0,1,0,1,
-            Gtk.AttachOptions.FILL|Gtk.AttachOptions.EXPAND,
-            Gtk.AttachOptions.EXPAND|Gtk.AttachOptions.FILL,25,25)
+        table = Gtk.Table(4, 1, True)
+        button = Gtk.Button(args)
+        button.connect("clicked", self._ipaddr_)
+        table.attach(button, 0, 1, 0, 1,
+                     Gtk.AttachOptions.FILL | Gtk.AttachOptions.EXPAND,
+                     Gtk.AttachOptions.EXPAND | Gtk.AttachOptions.FILL, 25, 25)
         button.show()
-        button=Gtk.Button("Start X11 VNC Server")
-        button.connect("clicked",self.connectVNC)
-        table.attach(button,0,1,1,2,
-            Gtk.AttachOptions.FILL|Gtk.AttachOptions.EXPAND,
-            Gtk.AttachOptions.FILL|Gtk.AttachOptions.EXPAND,25,25)
-        button.show()
-        
-        button=Gtk.Button("Stop X11 VNC Server")
-        button.connect("clicked",self.stopVNC)
-        table.attach(button,0,1,2,3,Gtk.AttachOptions.FILL,
-            Gtk.AttachOptions.FILL,25,25)
+        button = Gtk.Button("Start X11 VNC Server")
+        button.connect("clicked", self.connectVNC)
+        table.attach(button, 0, 1, 1, 2,
+                     Gtk.AttachOptions.FILL | Gtk.AttachOptions.EXPAND,
+                     Gtk.AttachOptions.FILL | Gtk.AttachOptions.EXPAND, 25, 25)
         button.show()
 
-        button=Gtk.Button("Exit VncLauncherActivity")
-        button.connect("clicked",lambda w:Gtk.main_quit())
-        table.attach(button,0,1,3,4,Gtk.AttachOptions.FILL,
-            Gtk.AttachOptions.FILL,25,25)
+        button = Gtk.Button("Stop X11 VNC Server")
+        button.connect("clicked", self.stopVNC)
+        table.attach(button, 0, 1, 2, 3, Gtk.AttachOptions.FILL,
+                     Gtk.AttachOptions.FILL, 25, 25)
+        button.show()
+
+        button = Gtk.Button("Exit VncLauncherActivity")
+        button.connect("clicked", lambda w: Gtk.main_quit())
+        table.attach(button, 0, 1, 3, 4, Gtk.AttachOptions.FILL,
+                     Gtk.AttachOptions.FILL, 25, 25)
         button.show()
         table.show()
-         
+
         self._vte = VTE()
         self._vte.show()
 
         box.pack_start(self._vte, True, True, 0)
         box.pack_start(table, False, False, 0)
-        
-        self.set_canvas(box) 
+
+        self.set_canvas(box)
         box.show()
 
-    def stopVNC(self,button):
-	
-        cmd = "\x03" # Ctrl+C
+    def stopVNC(self, button):
+
+        cmd = "\x03"  # Ctrl+C
         self._vte.feed_child(cmd, -1)
-          
-    def connectVNC(self,button):
+
+    def connectVNC(self, button):
         self._vte.grab_focus()
         # check if x11vnc is installed
         cmd = '/usr/bin/x11vnc'
@@ -132,19 +133,21 @@ class VncLauncherActivity(activity.Activity):
             else:
                 if platform.architecture()[0] == '64bit':
                     path = os.path.join(activity.get_bundle_path(),
-                        'bin/x86-64')
+                                        'bin/x86-64')
                 else:
                     path = os.path.join(activity.get_bundle_path(), 'bin/x86')
             self._vte.feed_child(
                 "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib\n" % path, -1)
-            cmd = os.path.join(path, 'x11vnc')+"\n"
+            cmd = os.path.join(path, 'x11vnc') + "\n"
             logging.error('Using %s', cmd)
         self._vte.feed_child(cmd, -1)
 
     def __key_press_cb(self, window, event):
         return False
 
+
 class VTE(Vte.Terminal):
+
     def __init__(self):
         Vte.Terminal.__init__(self)
         self._configure_vte()
@@ -153,13 +156,19 @@ class VTE(Vte.Terminal):
             GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
 
         os.chdir(os.environ["HOME"])
-        self.spawn_sync(Vte.PtyFlags.DEFAULT, os.environ["HOME"],
-            ["/bin/bash"], [], GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None)
+        self.spawn_sync(
+            Vte.PtyFlags.DEFAULT,
+            os.environ["HOME"],
+            ["/bin/bash"],
+            [],
+            GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+            None,
+            None)
 
     def _configure_vte(self):
         conf = ConfigParser.ConfigParser()
         conf_file = os.path.join(env.get_profile_path(), 'terminalrc')
-        
+
         if os.path.isfile(conf_file):
             f = open(conf_file, 'r')
             conf.readfp(f)
@@ -184,16 +193,16 @@ class VTE(Vte.Terminal):
         else:
             bg_color = '#FFFFFF'
             conf.set('terminal', 'bg_color', bg_color)
-        self.set_colors(Gdk.color_parse (fg_color),
-                            Gdk.color_parse (bg_color),
-                            [])
-                            
+        self.set_colors(Gdk.color_parse(fg_color),
+                        Gdk.color_parse(bg_color),
+                        [])
+
         if conf.has_option('terminal', 'cursor_blink'):
             blink = conf.getboolean('terminal', 'cursor_blink')
         else:
             blink = False
             conf.set('terminal', 'cursor_blink', blink)
-        
+
         self.set_cursor_blink_mode(blink)
 
         if conf.has_option('terminal', 'bell'):
@@ -202,16 +211,16 @@ class VTE(Vte.Terminal):
             bell = False
             conf.set('terminal', 'bell', bell)
         self.set_audible_bell(bell)
-        
+
         if conf.has_option('terminal', 'scrollback_lines'):
             scrollback_lines = conf.getint('terminal', 'scrollback_lines')
         else:
             scrollback_lines = 1000
             conf.set('terminal', 'scrollback_lines', scrollback_lines)
-            
+
         self.set_scrollback_lines(scrollback_lines)
         self.set_allow_bold(True)
-        
+
         if conf.has_option('terminal', 'scroll_on_keystroke'):
             scroll_key = conf.getboolean('terminal', 'scroll_on_keystroke')
         else:
@@ -225,7 +234,7 @@ class VTE(Vte.Terminal):
             scroll_output = False
             conf.set('terminal', 'scroll_on_output', scroll_output)
         self.set_scroll_on_output(scroll_output)
-        
+
         if conf.has_option('terminal', 'emulation'):
             emulation = conf.get('terminal', 'emulation')
         else:
