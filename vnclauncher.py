@@ -204,9 +204,9 @@ class VTE(Vte.Terminal):
         else:
             bg_color = '#FFFFFF'
             conf.set('terminal', 'bg_color', bg_color)
-        self.set_colors(Gdk.color_parse(fg_color),
-                        Gdk.color_parse(bg_color),
-                        [])
+
+        self.set_colors(Gdk.RGBA(*Gdk.color_parse(fg_color).to_floats()),
+                        Gdk.RGBA(*Gdk.color_parse(bg_color).to_floats()), [])
 
         if conf.has_option('terminal', 'cursor_blink'):
             blink = conf.getboolean('terminal', 'cursor_blink')
@@ -246,19 +246,21 @@ class VTE(Vte.Terminal):
             conf.set('terminal', 'scroll_on_output', scroll_output)
         self.set_scroll_on_output(scroll_output)
 
-        if conf.has_option('terminal', 'emulation'):
-            emulation = conf.get('terminal', 'emulation')
-        else:
-            emulation = 'xterm'
-            conf.set('terminal', 'emulation', emulation)
-        self.set_emulation(emulation)
+        if hasattr(self, 'set_emulation'):
+            if conf.has_option('terminal', 'emulation'):
+                emulation = conf.get('terminal', 'emulation')
+            else:
+                emulation = 'xterm'
+                conf.set('terminal', 'emulation', emulation)
+            self.set_emulation(emulation)
 
-        if conf.has_option('terminal', 'visible_bell'):
-            visible_bell = conf.getboolean('terminal', 'visible_bell')
-        else:
-            visible_bell = False
-            conf.set('terminal', 'visible_bell', visible_bell)
-        self.set_visible_bell(visible_bell)
+        if hasattr(self, 'set_visible_bell'):
+            if conf.has_option('terminal', 'visible_bell'):
+                visible_bell = conf.getboolean('terminal', 'visible_bell')
+            else:
+                visible_bell = False
+                conf.set('terminal', 'visible_bell', visible_bell)
+            self.set_visible_bell(visible_bell)
         conf.write(open(conf_file, 'w'))
 
     def on_gconf_notification(self, client, cnxn_id, entry, what):
