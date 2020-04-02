@@ -114,7 +114,7 @@ class VncLauncherActivity(activity.Activity):
     def stopVNC(self, button):
 
         cmd = "\x03"  # Ctrl+C
-        self._vte.feed_child(cmd)
+        self._vte.feed_child(cmd.encode('utf-8'))
 
     def connectVNC(self, button):
         self._vte.grab_focus()
@@ -133,10 +133,10 @@ class VncLauncherActivity(activity.Activity):
                 else:
                     path = os.path.join(activity.get_bundle_path(), 'bin/x86')
             self._vte.feed_child(
-                "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib\n" % path)
+                ("export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib\n" % path).encode('utf-8'))
             cmd = os.path.join(path, 'x11vnc') + "\n"
             logging.error('Using %s', cmd)
-        self._vte.feed_child(cmd)
+        self._vte.feed_child(cmd.encode(('utf-8')))
 
     def __key_press_cb(self, window, event):
         return False
