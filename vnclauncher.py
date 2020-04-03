@@ -34,9 +34,13 @@ from sugar3 import env
 import configparser
 import os.path
 import platform
-from jarabe.model import network
 import struct
 import socket
+_NM_SERVICE = 'org.freedesktop.NetworkManager'
+_NM_IFACE = 'org.freedesktop.NetworkManager'
+_NM_PATH = '/org/freedesktop/NetworkManager'
+_NM_DEVICE_IFACE = 'org.freedesktop.NetworkManager.Device'
+
 
 
 class VncLauncherActivity(activity.Activity):
@@ -46,18 +50,18 @@ class VncLauncherActivity(activity.Activity):
         button.set_label('Please Click to find current IP address \n\n' +
                          'Error!! check connection')
         bus = dbus.SystemBus()
-        obj = bus.get_object(network.NM_SERVICE, network.NM_PATH)
-        netmgr = dbus.Interface(obj, network.NM_IFACE)
+        obj = bus.get_object(_NM_SERVICE, _NM_PATH)
+        netmgr = dbus.Interface(obj, _NM_IFACE)
         netmgr.GetDevices(reply_handler=self.__get_devices_reply_cb,
                           error_handler=self.__get_devices_error_cb)
 
     def __get_devices_reply_cb(self, devices):
         bus = dbus.SystemBus()
         for device_op in devices:
-            device = bus.get_object(network.NM_SERVICE, device_op)
+            device = bus.get_object(_NM_SERVICE, device_op)
             device_props = dbus.Interface(device, dbus.PROPERTIES_IFACE)
             ip_address = device_props.Get(
-                network.NM_DEVICE_IFACE, 'Ip4Address')
+                _NM_DEVICE_IFACE, 'Ip4Address')
             ipaddr = socket.inet_ntoa(struct.pack('I', ip_address))
             if ipaddr != "0.0.0.0" and ipaddr != "127.0.0.1":
                 self.ipbutton.set_label(
@@ -176,6 +180,10 @@ class VTE(Vte.Terminal):
                 None,
                 None)
 
+    def color_parse(self, color):
+        rgba = Gdk.RGBA()
+        rgba.parse(color)
+        return rgba
     def _configure_vte(self):
         conf = configparser.ConfigParser()
         conf_file = os.path.join(env.get_profile_path(), 'terminalrc')
@@ -205,8 +213,8 @@ class VTE(Vte.Terminal):
             bg_color = '#FFFFFF'
             conf.set('terminal', 'bg_color', bg_color)
 
-        self.set_colors(Gdk.RGBA(*Gdk.color_parse(fg_color).to_floats()),
-                        Gdk.RGBA(*Gdk.color_parse(bg_color).to_floats()), [])
+
+        self.set_colors(self.color_parse(bg_color), self.color_parse(fg_color), [])
 
         if conf.has_option('terminal', 'cursor_blink'):
             blink = conf.getboolean('terminal', 'cursor_blink')
