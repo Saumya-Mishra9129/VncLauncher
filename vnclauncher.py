@@ -125,21 +125,9 @@ class VncLauncherActivity(activity.Activity):
         # check if x11vnc is installed
         cmd = '/usr/bin/x11vnc'
         if os.path.isfile(cmd) and os.access(cmd, os.X_OK):
-            logging.error('Using x11vnc installed in the system')
+            logging.debug('Using x11vnc installed in the system')
         else:
-            # check platform
-            if platform.machine().startswith('arm'):
-                path = os.path.join(activity.get_bundle_path(), 'bin/arm')
-            else:
-                if platform.architecture()[0] == '64bit':
-                    path = os.path.join(activity.get_bundle_path(),
-                                        'bin/x86-64')
-                else:
-                    path = os.path.join(activity.get_bundle_path(), 'bin/x86')
-            self._vte.feed_child(
-                ("export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:%s/lib\n" % path).encode('utf-8'))
-            cmd = os.path.join(path, 'x11vnc') + "\n"
-            logging.error('Using %s', cmd)
+            logging.error('Specified package : x11vnc does not found')
         self._vte.feed_child(cmd.encode('utf-8'))
 
     def __key_press_cb(self, window, event):
