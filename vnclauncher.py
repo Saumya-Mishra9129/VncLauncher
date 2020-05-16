@@ -170,6 +170,7 @@ class VTE(Vte.Terminal):
         rgba = Gdk.RGBA()
         rgba.parse(color)
         return rgba
+    
     def _configure_vte(self):
         conf = configparser.ConfigParser()
         conf_file = os.path.join(env.get_profile_path(), 'terminalrc')
