@@ -33,7 +33,6 @@ from sugar3.activity import activity
 from sugar3 import env
 import configparser
 import os.path
-import platform
 import struct
 import socket
 _NM_SERVICE = 'org.freedesktop.NetworkManager'
