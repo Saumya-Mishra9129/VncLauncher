@@ -170,7 +170,7 @@ class VTE(Vte.Terminal):
         rgba = Gdk.RGBA()
         rgba.parse(color)
         return rgba
-    
+
     def _configure_vte(self):
         conf = configparser.ConfigParser()
         conf_file = os.path.join(env.get_profile_path(), 'terminalrc')
@@ -200,7 +200,8 @@ class VTE(Vte.Terminal):
             bg_color = '#FFFFFF'
             conf.set('terminal', 'bg_color', bg_color)
 
-        self.set_colors(self.color_parse(bg_color), self.color_parse(fg_color), [])
+        self.set_colors(self.color_parse(bg_color),
+                        self.color_parse(fg_color), [])
 
         if conf.has_option('terminal', 'cursor_blink'):
             blink = conf.getboolean('terminal', 'cursor_blink')
