@@ -41,7 +41,6 @@ _NM_PATH = '/org/freedesktop/NetworkManager'
 _NM_DEVICE_IFACE = 'org.freedesktop.NetworkManager.Device'
 
 
-
 class VncLauncherActivity(activity.Activity):
 
     def _ipaddr_(self, button):
@@ -199,7 +198,6 @@ class VTE(Vte.Terminal):
         else:
             bg_color = '#FFFFFF'
             conf.set('terminal', 'bg_color', bg_color)
-
 
         self.set_colors(self.color_parse(bg_color), self.color_parse(fg_color), [])
 
