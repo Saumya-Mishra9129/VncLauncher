@@ -136,7 +136,7 @@ class VTE(Vte.Terminal):
 
     def __init__(self):
         Vte.Terminal.__init__(self)
-        self._configure_vte()
+        self.configure_terminal()
         if hasattr(Vte.Terminal, "spawn_sync"):
             self.connect("child-exited", lambda term: term.spawn_sync(
                 Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
@@ -171,7 +171,7 @@ class VTE(Vte.Terminal):
         rgba.parse(color)
         return rgba
 
-    def _configure_vte(self):
+    def configure_terminal(self):
         conf = configparser.ConfigParser()
         conf_file = os.path.join(env.get_profile_path(), 'terminalrc')
 
