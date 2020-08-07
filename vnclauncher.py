@@ -112,6 +112,7 @@ class VncLauncherActivity(activity.Activity):
 
         self.set_canvas(box)
         box.show()
+        self._vte.grab_focus()
 
     def stopVNC(self, button):
 
@@ -119,7 +120,6 @@ class VncLauncherActivity(activity.Activity):
         self._vte.feed_child(cmd.encode('utf-8'))
 
     def connectVNC(self, button):
-        self._vte.grab_focus()
         # check if x11vnc is installed
         cmd = '/usr/bin/x11vnc'
         if os.path.isfile(cmd) and os.access(cmd, os.X_OK):
