@@ -253,7 +253,7 @@ class VTE(Vte.Terminal):
             if conf.has_option('terminal', 'visible_bell'):
                 visible_bell = conf.getboolean('terminal', 'visible_bell')
             else:
-                visible_bell = False
+                visible_bell = 'False'
                 conf.set('terminal', 'visible_bell', visible_bell)
             self.set_visible_bell(visible_bell)
         conf.write(open(conf_file, 'w'))
