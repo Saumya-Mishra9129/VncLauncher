@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import sys
 import os
 import gi
 import logging
@@ -107,12 +108,16 @@ class VncLauncherActivity(activity.Activity):
         self._vte = VTE()
         self._vte.show()
 
+        self._vte.connect("child-exited", self._quit_cb)
         box.pack_start(self._vte, True, True, 0)
         box.pack_start(table, False, False, 0)
 
         self.set_canvas(box)
         box.show()
         self._vte.grab_focus()
+
+    def _quit_cb(self, vte, data=None):
+        sys.exit(0)
 
     def stopVNC(self, button):
 
@@ -137,15 +142,7 @@ class VTE(Vte.Terminal):
     def __init__(self):
         Vte.Terminal.__init__(self)
         self.configure_terminal()
-        if hasattr(Vte.Terminal, "spawn_sync"):
-            self.connect("child-exited", lambda term: term.spawn_sync(
-                Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
-                GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
-        else:
-            self.connect("child-exited", lambda term: term.fork_full_command(
-                Vte.PtyFlags.DEFAULT, os.environ["HOME"], ["/bin/bash"], [],
-                GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None))
-
+        
         os.chdir(os.environ["HOME"])
         if hasattr(Vte.Terminal, "spawn_sync"):
             self.spawn_sync(
