@@ -36,6 +36,7 @@ import configparser
 import os.path
 import struct
 import socket
+import platform
 _NM_SERVICE = 'org.freedesktop.NetworkManager'
 _NM_IFACE = 'org.freedesktop.NetworkManager'
 _NM_PATH = '/org/freedesktop/NetworkManager'
@@ -129,9 +130,28 @@ class VncLauncherActivity(activity.Activity):
         cmd = '/usr/bin/x11vnc'
         if os.path.isfile(cmd) and os.access(cmd, os.X_OK):
             logging.debug('Using x11vnc installed in the system')
+            self._vte.feed_child(cmd.encode('utf-8'))
         else:
-            logging.error('Specified package : x11vnc does not found')
-        self._vte.feed_child(cmd.encode('utf-8'))
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text="x11vnc is not installed"
+            )
+            dialog.format_secondary_text(
+                "Install x11vnc by clicking on OK"
+            )
+            response = dialog.run()
+
+            if response == Gtk.ResponseType.OK:
+                logging.debug("Installing x11vnc")
+                if platform.version().find("Ubuntu") > -1 or platform.version().find("Debian") > -1:
+                    cmd = "apt install x11vnc"
+                if platform.platform().find("Fedora") > -1:
+                    cmd = "dnf install x11vnc"
+                self._vte.feed_child(cmd.encode('utf-8'))
+            dialog.destroy()
 
     def __key_press_cb(self, window, event):
         return False
