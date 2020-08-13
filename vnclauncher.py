@@ -35,8 +35,11 @@ from sugar3 import env
 import configparser
 import os.path
 import struct
-import socket
 import platform
+import socket
+import multiprocessing
+import subprocess
+import os
 _NM_SERVICE = 'org.freedesktop.NetworkManager'
 _NM_IFACE = 'org.freedesktop.NetworkManager'
 _NM_PATH = '/org/freedesktop/NetworkManager'
@@ -45,30 +48,92 @@ _NM_DEVICE_IFACE = 'org.freedesktop.NetworkManager.Device'
 
 class VncLauncherActivity(activity.Activity):
 
+
+    def pinger(self, job_q, results_q):
+        """
+        Do Ping
+        :param job_q:
+        :param results_q:
+        :return:
+        """
+        DEVNULL = open(os.devnull, 'w')
+        while True:
+
+            ip = job_q.get()
+
+            if ip is None:
+                break
+
+            try:
+                subprocess.check_call(['ping', '-c1', ip],
+                                      stdout=DEVNULL)
+                results_q.put(ip)
+            except:
+                pass
+
+    def get_my_ip(self):
+        """
+        Find my IP address
+        :return:
+        """
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+
+    def map_network(self, pool_size=255):
+        """
+        Maps the network
+        :param pool_size: amount of parallel ping processes
+        :return: list of valid ip addresses
+        """
+
+        ip_list = list()
+
+        # get my IP and compose a base like 192.168.1.xxx
+        ip_parts = self.get_my_ip().split('.')
+        base_ip = ip_parts[0] + '.' + ip_parts[1] + '.' + ip_parts[2] + '.'
+
+        # prepare the jobs queue
+        jobs = multiprocessing.Queue()
+        results = multiprocessing.Queue()
+
+        pool = [multiprocessing.Process(target=self.pinger, args=(jobs, results)) for i in range(pool_size)]
+
+        for p in pool:
+            p.start()
+
+        # cue hte ping processes
+        for i in range(1, 255):
+            jobs.put(base_ip + '{0}'.format(i))
+
+        for p in pool:
+            jobs.put(None)
+
+        for p in pool:
+            p.join()
+
+        # collect he results
+        while not results.empty():
+            ip = results.get()
+            ip_list.append(ip)
+
+        return ip_list
+
+    if __name__ == '__main__':
+        print('Mapping...')
+        lst = map_network()
+        print(lst)
+
     def _ipaddr_(self, button):
         self.ipbutton = button
         button.set_label('Please Click to find current IP address \n\n' +
                          'Error!! check connection')
-        bus = dbus.SystemBus()
-        obj = bus.get_object(_NM_SERVICE, _NM_PATH)
-        netmgr = dbus.Interface(obj, _NM_IFACE)
-        netmgr.GetDevices(reply_handler=self.__get_devices_reply_cb,
-                          error_handler=self.__get_devices_error_cb)
-
-    def __get_devices_reply_cb(self, devices):
-        bus = dbus.SystemBus()
-        for device_op in devices:
-            device = bus.get_object(_NM_SERVICE, device_op)
-            device_props = dbus.Interface(device, dbus.PROPERTIES_IFACE)
-            ip_address = device_props.Get(
-                _NM_DEVICE_IFACE, 'Ip4Address')
-            ipaddr = socket.inet_ntoa(struct.pack('I', ip_address))
-            if ipaddr != "0.0.0.0" and ipaddr != "127.0.0.1":
-                self.ipbutton.set_label(
-                    'Please Click to find current IP address \n\nIP=' + ipaddr)
-
-    def __get_devices_error_cb(self, err):
-        pass
+        ipaddr = self.map_network()
+        if ipaddr != "0.0.0.0" and ipaddr != "127.0.0.1":
+            self.ipbutton.set_label(
+                'Please Click to find current IP address \n\nIP=' + ipaddr[0])
 
     def __init__(self, handle):
         activity.Activity.__init__(self, handle)
