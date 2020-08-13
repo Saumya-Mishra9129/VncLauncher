@@ -35,8 +35,8 @@ from sugar3 import env
 import configparser
 import os.path
 import struct
-import socket
 import platform
+import subprocess
 _NM_SERVICE = 'org.freedesktop.NetworkManager'
 _NM_IFACE = 'org.freedesktop.NetworkManager'
 _NM_PATH = '/org/freedesktop/NetworkManager'
@@ -47,28 +47,37 @@ class VncLauncherActivity(activity.Activity):
 
     def _ipaddr_(self, button):
         self.ipbutton = button
-        button.set_label('Please Click to find current IP address \n\n' +
-                         'Error!! check connection')
-        bus = dbus.SystemBus()
-        obj = bus.get_object(_NM_SERVICE, _NM_PATH)
-        netmgr = dbus.Interface(obj, _NM_IFACE)
-        netmgr.GetDevices(reply_handler=self.__get_devices_reply_cb,
-                          error_handler=self.__get_devices_error_cb)
+        RetMyIPs = subprocess.check_output(['hostname', '-s', '-I']).decode('utf-8')[:-1]
+        myhostname = subprocess.check_output(['hostname']).decode('utf-8')
+        total_IPs = RetMyIPs.split()
+        IPs = "\n".join(total_IPs)
+        if RetMyIPs != "0.0.0.0" and RetMyIPs != "127.0.0.1":
+            logging.debug("Found IP Addresses")
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text="IP Addresses"
+            )
+            dialog.format_secondary_text(
+                 IPs + '\n\n'+
+                "Your Hostname is " + myhostname
+            )
+            response = dialog.run()
 
-    def __get_devices_reply_cb(self, devices):
-        bus = dbus.SystemBus()
-        for device_op in devices:
-            device = bus.get_object(_NM_SERVICE, device_op)
-            device_props = dbus.Interface(device, dbus.PROPERTIES_IFACE)
-            ip_address = device_props.Get(
-                _NM_DEVICE_IFACE, 'Ip4Address')
-            ipaddr = socket.inet_ntoa(struct.pack('I', ip_address))
-            if ipaddr != "0.0.0.0" and ipaddr != "127.0.0.1":
+            if response == Gtk.ResponseType.OK:
+                logging.debug("Got IP Addresses")
                 self.ipbutton.set_label(
-                    'Please Click to find current IP address \n\nIP=' + ipaddr)
+                    'Please Click to find current IP address')
+            dialog.destroy()
 
-    def __get_devices_error_cb(self, err):
-        pass
+        else:
+            self.ipbutton.set_label(
+                'Please Click to find current IP address \n\n' +
+                'Error!! check connection'
+            )
+
 
     def __init__(self, handle):
         activity.Activity.__init__(self, handle)
